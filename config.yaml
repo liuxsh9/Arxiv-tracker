@@ -1,12 +1,11 @@
-categories: ["cs.CV", "cs.LG", "cs.AI"]
+categories: ["cs.CL", "cs.LG", "cs.AI"]
+# ⚠️ 按自己的研究方向修改关键词（组间逻辑见下方 logic）
 keywords:
-  - "open vocabulary"
-  - "open-vocabulary"
-  - "open vocabulary segmentation"
-  - "open-vocabulary segmentation"
-  - "vision language model"
-  - "training-free"
-  - "training free"
+  - "large language model"
+  - "LLM"
+  - "agent"
+  - "reinforcement learning"
+  - "reasoning"
 
 # exclude_keywords: # 选择排除的关键词
 #   - "Large Language Model"
@@ -27,9 +26,9 @@ summary:
   # scope: tldr / full / both
   scope: "both"
 
-# —— 邮件发送（QQ 邮箱） ——
+# —— 邮件发送（默认关闭，主推送渠道为企业微信；需要再打开） ——
 email:
-  enabled: true
+  enabled: false
   subject: "[arXiv] Daily Digest"
   smtp_server: "smtp.qq.com"
   smtp_port: 465
@@ -79,10 +78,18 @@ site:
   accent: "#2563eb"     # 主题色（可自定义）
 
 freshness:
-  since_days: 3650           # 只看最近 N 天内新提交/更新（1=近24h）
+  since_days: 7             # 只看最近 7 天内新提交/更新
   unique_only: true       # 开启跨天去重（见过的 arXiv ID 不再重复发）
   state_path: ".state/seen.json"  # 去重状态文件（会随 docs 一起提交保存）
   fallback_when_empty: false # 当今天无新增时，是否回退展示最近的Top若干（建议false）
+
+# —— 企业微信群机器人推送 ——
+# webhook 地址属于敏感信息，只放 GitHub Secrets（WECOM_WEBHOOK_URL），不要写进本文件
+wecom:
+  enabled: true
+  webhook_env: "WECOM_WEBHOOK_URL"
+  max_items: 15             # 单次推送最多条目（超出部分看网页版）
+  digest_max_chars: 120     # 每篇摘要在微信中的截断长度
 
 scrape:
   html: true               # 先用 HTML 页抓链接

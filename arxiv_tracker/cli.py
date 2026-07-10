@@ -483,9 +483,38 @@ def run(config_path, categories, keywords, exclude_keywords, logic, max_results,
             except Exception as e:
                 click.secho("[Email] 发送失败: {}".format(e), fg="red")
 
-        # 8) —— 仅在“网页生成成功或邮件成功发送”后，才持久化去重状态 —— #
+        # 7.5) 企业微信推送（webhook 从环境变量读取，详见 wecom.py）
+        wecom_sent = False
+        wecom_cfg = (raw_cfg.get("wecom") or {})
+        if wecom_cfg.get("enabled"):
+            try:
+                stamp = _extract_stamp_from_path(json_path)
+                flag_dir = pathlib.Path(out_dir or "outputs")
+                flag_dir.mkdir(parents=True, exist_ok=True)
+                wecom_flag = flag_dir / f"wecom_sent_{stamp}.flag"
+                if wecom_flag.exists():
+                    click.secho(f"[WeCom] 本次快照({stamp})已推送过，跳过", fg="yellow")
+                else:
+                    from .wecom import push_to_wecom
+                    wecom_sent = push_to_wecom(
+                        items=items,
+                        wecom_cfg=wecom_cfg,
+                        summaries_zh=summaries_zh, summaries_en=summaries_en,
+                        translations=translations,
+                        site_url=page_url or "",
+                        date_str=time.strftime("%Y-%m-%d"),
+                    )
+                    if wecom_sent:
+                        try:
+                            wecom_flag.touch()
+                        except Exception:
+                            pass
+            except Exception as e:
+                click.secho("[WeCom] 推送失败: {}".format(e), fg="red")
+
+        # 8) —— 仅在“网页生成成功或邮件/微信成功发送”后，才持久化去重状态 —— #
         try:
-            if unique_only and state_path and items and (site_generated or email_sent):
+            if unique_only and state_path and items and (site_generated or email_sent or wecom_sent):
                 all_seen = set(seen_ids)
                 for it in items:
                     aid = it.get("id")
@@ -497,7 +526,7 @@ def run(config_path, categories, keywords, exclude_keywords, logic, max_results,
                     json.dump({"ids": sorted(all_seen)}, f, ensure_ascii=False, indent=2)
                 click.echo(f"[Freshness] 更新去重状态，共 {len(all_seen)} 条 -> {state_path}")
             elif unique_only and items:
-                click.echo("[Freshness] 未写入去重状态（本次既未成功发邮件也未生成站点）")
+                click.echo("[Freshness] 未写入去重状态（本次未成功发送邮件/微信，也未生成站点）")
         except Exception as e:
             click.secho(f"[Freshness] 保存去重状态失败: {e}", fg="yellow")
 

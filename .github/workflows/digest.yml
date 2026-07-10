@@ -11,9 +11,9 @@ on:
         type: choice
         options: ["false", "true"]
 
-  # 定时触发：每天 19:00 UTC = 北京时间次日 03:00
+  # 定时触发：每天 00:23 UTC = 北京时间 08:23
   schedule:
-    - cron: "0 19 * * *"
+    - cron: "23 0 * * *"
 
 concurrency:
   group: arxiv-digest
@@ -121,6 +121,9 @@ jobs:
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER || vars.EMAIL_SENDER }}
           SMTP_USER:    ${{ secrets.SMTP_USER    || vars.SMTP_USER }}
           SMTP_PASS:    ${{ secrets.SMTP_PASS }}
+
+          # 企业微信群机器人 webhook（Settings → Secrets → WECOM_WEBHOOK_URL）
+          WECOM_WEBHOOK_URL: ${{ secrets.WECOM_WEBHOOK_URL }}
 
           # 提升 arXiv API 抗抖参数
           ARXIV_MAX_ATTEMPTS: "6"

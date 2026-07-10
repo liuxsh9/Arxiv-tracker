@@ -14,6 +14,15 @@
 
 ---
 
+## 🍴 本 Fork 的改动（liuxsh9）
+
+- ➕ 新增 **企业微信群机器人推送**（`arxiv_tracker/wecom.py`）：每日精简日报（标题 + 中文摘要 + 链接）直达微信，自动按 4096 字节上限分批；完整版看 GitHub Pages
+- ⚙️ 配置入口：`config.yaml` 的 `wecom:` 段；webhook 放仓库 Secret `WECOM_WEBHOOK_URL`，**不要写入配置文件**
+- ⏰ 定时改为北京时间每天 08:23（`digest.yml`）；移除了重复的 `arxiv_daily.yml` workflow；邮件推送默认关闭
+- 🔑 需要配置的 Secrets：`WECOM_WEBHOOK_URL`（必须）、`OPENAI_COMPAT_API_KEY`（LLM 摘要/翻译，推荐）
+
+---
+
 ## 😮 项目亮点（Highlights）
 
 - 🔎 **多学科多主题检索**：支持 `cs.CV / cs.LG / cs.AI / cs.CL` 等分类，自由组合关键词；`logic: AND/OR` 控制“分类集合”与“关键词集合”的布尔关系
