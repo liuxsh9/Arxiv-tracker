@@ -156,13 +156,20 @@ def enrich_paper(item: Dict[str, Any], author_block: str,
     data = _json_loose(text)
     affs = data.get("affiliations") or []
     if not isinstance(affs, list):
-        affs = []
+        affs = [affs]
+
+    def _as_str(v) -> str:
+        # LLM 偶尔把字符串字段返回成句子数组，做类型容错
+        if isinstance(v, list):
+            v = " ".join(str(x) for x in v)
+        return str(v or "").strip()
+
     return {
         "affiliations": [str(a).strip() for a in affs if str(a).strip()][:4],
-        "title_zh": (data.get("title_zh") or "").strip(),
-        "digest_zh": (data.get("digest_zh") or "").strip(),
-        "digest_en": (data.get("digest_en") or "").strip(),
-        "why_read": (data.get("why_read") or "").strip(),
+        "title_zh": _as_str(data.get("title_zh")),
+        "digest_zh": _as_str(data.get("digest_zh")),
+        "digest_en": _as_str(data.get("digest_en")),
+        "why_read": _as_str(data.get("why_read")),
     }
 
 
