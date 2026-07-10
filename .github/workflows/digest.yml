@@ -115,6 +115,10 @@ jobs:
           # LLM（DeepSeek / OpenAI 兼容实现）
           OPENAI_COMPAT_API_KEY: ${{ secrets.OPENAI_COMPAT_API_KEY || vars.OPENAI_COMPAT_API_KEY }}
           DS_API_KEY:            ${{ secrets.DS_API_KEY            || vars.DS_API_KEY }}
+          # 完全自定义 LLM（三项都设置时覆盖 config.yaml 的 llm 段）
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL:    ${{ secrets.LLM_MODEL }}
+          LLM_API_KEY:  ${{ secrets.LLM_API_KEY }}
 
           # 邮件地址/用户名：优先 Secrets，若无回退 Variables
           EMAIL_TO:     ${{ secrets.EMAIL_TO     || vars.EMAIL_TO }}

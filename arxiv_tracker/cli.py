@@ -127,6 +127,13 @@ def run(config_path, categories, keywords, exclude_keywords, logic, max_results,
         # 摘要
         summary_cfg = raw_cfg.get("summary", {}) or {}
         llm_cfg = raw_cfg.get("llm", {}) or {}
+        # 环境变量覆盖 base_url / model / api key 变量名（避免私有网关地址写入公开仓库）
+        if os.getenv("LLM_BASE_URL"):
+            llm_cfg["base_url"] = os.getenv("LLM_BASE_URL")
+        if os.getenv("LLM_MODEL"):
+            llm_cfg["model"] = os.getenv("LLM_MODEL")
+        if os.getenv("LLM_API_KEY"):
+            llm_cfg["api_key"] = os.getenv("LLM_API_KEY")
         mode = summary_mode or summary_cfg.get("mode", "none")
         scope = summary_scope or summary_cfg.get("scope", "both")
 
