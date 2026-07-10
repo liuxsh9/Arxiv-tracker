@@ -334,6 +334,33 @@ def run(config_path, categories, keywords, exclude_keywords, logic, max_results,
                     except Exception as e:
                         click.secho(f"[Translate] 失败 {sid[:18]}...: {e}", fg="red")
 
+        # 4.5) 兴趣筛选 + 机构择优（curator）：决定推送集合与精读级提炼
+        #      提前于建站执行，让网页也能展示精选标记/机构/阅读建议
+        push_items = items
+        curator_extras = {}
+        curator_cfg = (raw_cfg.get("curator") or {})
+        if curator_cfg.get("enabled") and items:
+            cur_api_key = (llm_cfg.get("api_key")
+                           or os.getenv(llm_cfg.get("api_key_env") or "OPENAI_API_KEY", ""))
+            if not cur_api_key:
+                click.secho("[Curator] 跳过：未找到 LLM API Key，推送全部条目", fg="yellow")
+            else:
+                try:
+                    from .curator import curate
+                    push_items, curator_extras = curate(
+                        items, curator_cfg, llm_cfg, cur_api_key, verbose=verbose)
+                    # enrich 结果回填到 summaries/translations，网页归档同样受益
+                    for sid, ex in (curator_extras or {}).items():
+                        if ex.get("digest_zh") or ex.get("digest_en"):
+                            d = summaries_zh.setdefault(sid, {})
+                            d["digest_zh"] = ex.get("digest_zh") or d.get("digest_zh", "")
+                            d["digest_en"] = ex.get("digest_en") or d.get("digest_en", "")
+                        if ex.get("title_zh"):
+                            translations.setdefault(sid, {})["title_zh"] = ex["title_zh"]
+                except Exception as e:
+                    click.secho(f"[Curator] 失败（{e}），降级为推送全部条目", fg="red")
+                    push_items, curator_extras = items, {}
+
         # 5) 终端预览
         if not items:
             click.echo("（今日暂无新增）")
@@ -490,24 +517,6 @@ def run(config_path, categories, keywords, exclude_keywords, logic, max_results,
             except Exception as e:
                 click.secho("[Email] 发送失败: {}".format(e), fg="red")
 
-        # 7.4) 兴趣筛选 + 机构择优（curator）：决定推送集合；全量 items 仍进入网页归档
-        push_items = items
-        curator_extras = {}
-        curator_cfg = (raw_cfg.get("curator") or {})
-        if curator_cfg.get("enabled") and items:
-            api_key = (llm_cfg.get("api_key")
-                       or os.getenv(llm_cfg.get("api_key_env") or "OPENAI_API_KEY", ""))
-            if not api_key:
-                click.secho("[Curator] 跳过：未找到 LLM API Key，推送全部条目", fg="yellow")
-            else:
-                try:
-                    from .curator import curate
-                    push_items, curator_extras = curate(
-                        items, curator_cfg, llm_cfg, api_key, verbose=verbose)
-                except Exception as e:
-                    click.secho(f"[Curator] 失败（{e}），降级为推送全部条目", fg="red")
-                    push_items, curator_extras = items, {}
-
         # 7.5) 企业微信推送（webhook 从环境变量读取，详见 wecom.py）
         wecom_sent = False
         wecom_cfg = (raw_cfg.get("wecom") or {})
@@ -530,6 +539,7 @@ def run(config_path, categories, keywords, exclude_keywords, logic, max_results,
                         date_str=time.strftime("%m-%d %H:%M"),
                         extras=curator_extras,
                         header_title=str(wecom_cfg.get("header_title", "arXiv 论文速递")),
+                        candidates_total=len(items),
                     )
                     # curator 过滤到 0 篇也算“本轮已处理”，写 flag 防止同快照重复跑
                     if wecom_sent or (curator_cfg.get("enabled") and items and not push_items):

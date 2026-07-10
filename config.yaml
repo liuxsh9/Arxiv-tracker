@@ -1,11 +1,17 @@
-categories: ["cs.CL", "cs.LG", "cs.AI"]
-# ⚠️ 按自己的研究方向修改关键词（组间逻辑见下方 logic）
+categories: ["cs.SE", "cs.CL", "cs.AI"]
+# 关键词只做粗召回（组间 AND：分类命中 且 任一关键词命中），精筛靠 curator
 keywords:
   - "large language model"
   - "LLM"
+  - "code generation"
+  - "coding agent"
+  - "software engineering"
   - "agent"
+  - "benchmark"
+  - "supervised fine-tuning"
   - "reinforcement learning"
-  - "reasoning"
+  - "pretraining data"
+  - "data synthesis"
 
 # exclude_keywords: # 选择排除的关键词
 #   - "Large Language Model"
@@ -92,6 +98,7 @@ wecom:
   enabled: true
   webhook_env: "WECOM_WEBHOOK_URL"
   header_title: "arXiv 论文速递"
+  msg_type: "text"          # text=个人微信可见（微信插件不支持 markdown）；markdown=仅企业微信内美观
   max_items: 5              # 单次推送最多条目（一天 5 次增量，每次少而精）
   digest_max_chars: 130     # 普通条目摘要截断长度；curator 入选条目自动放宽到 3 倍
 
@@ -108,10 +115,28 @@ curator:
 
   # ⚠️ 用自然语言描述你的兴趣点（打分的依据，写得越具体越准）
   interests: |
-    - LLM agent 系统：多智能体协作、工具调用、计算机操作(computer use)、长程任务规划
-    - LLM 推理能力：过程奖励模型、可验证奖励强化学习(RLVR)、test-time scaling
-    - 训练效率与对齐：RLHF/DPO 变体、数据合成与课程学习
-    - 不感兴趣：纯视觉任务、传统 NLP 下游任务微调、医疗/法律等垂直领域应用
+    用户画像：LLM × Coding Agent × 软件工程方向的公司专家，负责大模型训练数据
+    （预训练数据、SFT 数据、RL 训练数据）的建设。不做训练算法本身的研究。
+
+    高度感兴趣（0.8~1.0）：
+    - 大模型代码能力：代码生成、代码理解、代码修复、仓库级编程任务
+    - Coding Agent：SWE-bench 类任务、agent 框架/脚手架、工具使用、
+      计算机操作、issue 修复、终端/IDE 交互式编程智能体
+    - 代码与 agent 的评测：新 benchmark、评测方法学、能力分析、失败模式分析
+    - 面向代码/agent 的训练数据：预训练语料构建与清洗、SFT 数据合成与筛选、
+      RL/RLVR 训练数据与环境构建、数据 scaling 规律、数据质量度量
+    - LLM 时代的软件工程实证发现：AI 辅助开发的效率/质量研究、
+      开发者与 AI 协作模式、AI 生成代码的缺陷/安全分析
+
+    一般感兴趣（0.5~0.7）：
+    - 通用 SFT/RLHF/RL 方法（若其数据构建部分有可迁移经验）
+    - 通用 agent 推理/规划（非代码场景但方法可借鉴）
+    - 程序分析/测试生成等传统 SE 技术与 LLM 的结合
+
+    不感兴趣（<0.3）：
+    - 纯视觉/多模态感知、语音
+    - 医疗/法律/金融等垂直领域应用（除非核心贡献是数据或 agent 方法）
+    - 纯理论（优化理论、泛化界）、模型压缩/推理加速、硬件
 
   # 机构关键词匹配（英文，大小写不敏感；命中任意一个即加分）
   top_institutions:

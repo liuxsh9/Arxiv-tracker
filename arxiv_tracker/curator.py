@@ -204,7 +204,8 @@ def curate(items: List[Dict[str, Any]], curator_cfg: Dict[str, Any],
         blocks[sid] = block
         insts = match_institutions(block, top_insts)
         it["_curator_insts"] = insts
-        it["_curator_score"] = scores.get(sid, 0) + (inst_bonus if insts else 0)
+        it["_interest"] = scores.get(sid, 0)          # 展示用：纯兴趣分（0~1）
+        it["_curator_score"] = it["_interest"] + (inst_bonus if insts else 0)  # 排序用
 
     # 3) 排序择优
     passing.sort(key=lambda x: x.get("_curator_score", 0), reverse=True)
@@ -213,20 +214,25 @@ def curate(items: List[Dict[str, Any]], curator_cfg: Dict[str, Any],
     if dropped > 0:
         print(f"[Curator] 择优推送 top {len(selected)}，{dropped} 篇过阈值但未入选（已归档到网页）")
 
-    # 4) 丰富版提炼（仅入选论文，每篇 1 次调用）
+    # 4) 丰富版提炼（仅入选论文，每篇 1 次调用；失败重试 1 次）
     extras: Dict[str, Dict] = {}
     for it in selected:
         sid = it.get("id") or ""
-        try:
-            ex = enrich_paper(it, blocks.get(sid, ""), llm_cfg, api_key)
-            # LLM 提取的机构 与 关键词命中 合并去重，命中的排前
-            merged, seen = [], set()
-            for a in (it.get("_curator_insts") or []) + ex["affiliations"]:
-                if a.lower() not in seen:
-                    merged.append(a)
-                    seen.add(a.lower())
-            ex["affiliations"] = merged[:4]
-            extras[sid] = ex
-        except Exception as e:
-            print(f"[Curator] 提炼失败 {sid[:32]}: {e}")
+        for attempt in (1, 2):
+            try:
+                ex = enrich_paper(it, blocks.get(sid, ""), llm_cfg, api_key)
+                if not (ex.get("digest_zh") or ex.get("why_read")) and attempt == 1:
+                    continue  # 空响应也视为失败，重试一次
+                # LLM 提取的机构 与 关键词命中 合并去重，命中的排前
+                merged, seen = [], set()
+                for a in (it.get("_curator_insts") or []) + ex["affiliations"]:
+                    if a.lower() not in seen:
+                        merged.append(a)
+                        seen.add(a.lower())
+                ex["affiliations"] = merged[:4]
+                extras[sid] = ex
+                break
+            except Exception as e:
+                if attempt == 2:
+                    print(f"[Curator] 提炼失败（已重试） {sid[:32]}: {e}")
     return selected, extras
