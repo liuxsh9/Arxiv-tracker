@@ -32,25 +32,38 @@ def _render_item(idx: int, item: Dict[str, Any],
                  summaries_zh: Dict[str, Dict[str, str]],
                  summaries_en: Dict[str, Dict[str, str]],
                  translations: Dict[str, Dict[str, str]],
-                 digest_max_chars: int) -> str:
+                 digest_max_chars: int,
+                 extras: Optional[Dict[str, Dict]] = None) -> str:
     sid = item.get("id") or ""
     title = _truncate(item.get("title") or "", 160)
     url = item.get("html_url") or item.get("pdf_url") or sid
     tx = translations.get(sid) or {}
-    title_zh = _truncate(tx.get("title_zh") or "", 160)
+    ex = (extras or {}).get(sid) or {}
+    title_zh = _truncate(ex.get("title_zh") or tx.get("title_zh") or "", 160)
 
     s = summaries_zh.get(sid) or {}
-    digest = s.get("digest_zh") or s.get("tldr") or ""
+    digest = ex.get("digest_zh") or s.get("digest_zh") or s.get("tldr") or ""
     if not digest:
         s_en = summaries_en.get(sid) or {}
         digest = s_en.get("digest_en") or s_en.get("tldr") or ""
-    digest = _truncate(digest, digest_max_chars)
+    # 入选精读论文给更长的摘要额度
+    digest = _truncate(digest, digest_max_chars * 3 if ex else digest_max_chars)
 
     lines = [f"**{idx}. [{title}]({url})**"]
+    meta_bits = []
+    if ex.get("affiliations"):
+        meta_bits.append("🏛 " + " · ".join(ex["affiliations"]))
+    score = item.get("_curator_score")
+    if score is not None:
+        meta_bits.append(f"⭐ {score:.2f}")
+    if meta_bits:
+        lines.append("> " + "　".join(meta_bits))
     if title_zh:
         lines.append(f"> {title_zh}")
     if digest:
         lines.append(f"> {digest}")
+    if ex.get("why_read"):
+        lines.append(f"> 💡 {_truncate(ex['why_read'], 120)}")
     return "\n".join(lines)
 
 
@@ -79,21 +92,24 @@ def build_wecom_messages(items: List[Dict[str, Any]],
                          max_items: int = 15,
                          digest_max_chars: int = 120,
                          site_url: str = "",
-                         date_str: str = "") -> List[str]:
+                         date_str: str = "",
+                         extras: Optional[Dict[str, Dict]] = None,
+                         header_title: str = "arXiv 论文速递") -> List[str]:
     summaries_zh = summaries_zh or {}
     summaries_en = summaries_en or {}
     translations = translations or {}
 
-    header = f"## 📄 arXiv 每日速递{('（' + date_str + '）') if date_str else ''}"
+    header = f"## 📄 {header_title}{('（' + date_str + '）') if date_str else ''}"
     if not items:
         return []  # 无新增不打扰
 
     total = len(items)
     shown = items[:max_items]
-    header += f"\n共 {total} 篇新论文" + (f"，仅展示前 {max_items} 篇" if total > max_items else "")
+    header += f"\n共 {total} 篇" + (f"，本条推送前 {max_items} 篇" if total > max_items else "")
 
     blocks = [
-        _render_item(i, it, summaries_zh, summaries_en, translations, digest_max_chars)
+        _render_item(i, it, summaries_zh, summaries_en, translations,
+                     digest_max_chars, extras=extras)
         for i, it in enumerate(shown, 1)
     ]
     footer = f"🔗 [完整摘要与历史归档]({site_url})" if site_url else ""
@@ -115,7 +131,9 @@ def push_to_wecom(items: List[Dict[str, Any]],
                   summaries_en: Optional[Dict] = None,
                   translations: Optional[Dict] = None,
                   site_url: str = "",
-                  date_str: str = "") -> bool:
+                  date_str: str = "",
+                  extras: Optional[Dict[str, Dict]] = None,
+                  header_title: str = "arXiv 论文速递") -> bool:
     """返回是否实际发送成功（无新增/未配置返回 False，不抛异常）。"""
     webhook_env = wecom_cfg.get("webhook_env") or "WECOM_WEBHOOK_URL"
     webhook_url = wecom_cfg.get("webhook_url") or os.getenv(webhook_env, "")
@@ -132,6 +150,8 @@ def push_to_wecom(items: List[Dict[str, Any]],
         digest_max_chars=int(wecom_cfg.get("digest_max_chars", 120)),
         site_url=site_url,
         date_str=date_str,
+        extras=extras,
+        header_title=header_title,
     )
     if not messages:
         print("[WeCom] 今日无新增，跳过推送")

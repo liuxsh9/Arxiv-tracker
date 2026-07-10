@@ -11,9 +11,10 @@ on:
         type: choice
         options: ["false", "true"]
 
-  # 定时触发：每天 00:23 UTC = 北京时间 08:23
+  # 定时触发：UTC 01:07/04:07/06:07/09:07/12:07 = 北京时间 09/12/14/17/20 点
+  # 每轮只推送上轮之后新增的论文（seen.json 去重），实现一天 5 次增量推送
   schedule:
-    - cron: "23 0 * * *"
+    - cron: "7 1,4,6,9,12 * * *"
 
 concurrency:
   group: arxiv-digest

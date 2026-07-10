@@ -490,6 +490,24 @@ def run(config_path, categories, keywords, exclude_keywords, logic, max_results,
             except Exception as e:
                 click.secho("[Email] 发送失败: {}".format(e), fg="red")
 
+        # 7.4) 兴趣筛选 + 机构择优（curator）：决定推送集合；全量 items 仍进入网页归档
+        push_items = items
+        curator_extras = {}
+        curator_cfg = (raw_cfg.get("curator") or {})
+        if curator_cfg.get("enabled") and items:
+            api_key = (llm_cfg.get("api_key")
+                       or os.getenv(llm_cfg.get("api_key_env") or "OPENAI_API_KEY", ""))
+            if not api_key:
+                click.secho("[Curator] 跳过：未找到 LLM API Key，推送全部条目", fg="yellow")
+            else:
+                try:
+                    from .curator import curate
+                    push_items, curator_extras = curate(
+                        items, curator_cfg, llm_cfg, api_key, verbose=verbose)
+                except Exception as e:
+                    click.secho(f"[Curator] 失败（{e}），降级为推送全部条目", fg="red")
+                    push_items, curator_extras = items, {}
+
         # 7.5) 企业微信推送（webhook 从环境变量读取，详见 wecom.py）
         wecom_sent = False
         wecom_cfg = (raw_cfg.get("wecom") or {})
@@ -504,14 +522,17 @@ def run(config_path, categories, keywords, exclude_keywords, logic, max_results,
                 else:
                     from .wecom import push_to_wecom
                     wecom_sent = push_to_wecom(
-                        items=items,
+                        items=push_items,
                         wecom_cfg=wecom_cfg,
                         summaries_zh=summaries_zh, summaries_en=summaries_en,
                         translations=translations,
                         site_url=page_url or "",
-                        date_str=time.strftime("%Y-%m-%d"),
+                        date_str=time.strftime("%m-%d %H:%M"),
+                        extras=curator_extras,
+                        header_title=str(wecom_cfg.get("header_title", "arXiv 论文速递")),
                     )
-                    if wecom_sent:
+                    # curator 过滤到 0 篇也算“本轮已处理”，写 flag 防止同快照重复跑
+                    if wecom_sent or (curator_cfg.get("enabled") and items and not push_items):
                         try:
                             wecom_flag.touch()
                         except Exception:
@@ -521,7 +542,9 @@ def run(config_path, categories, keywords, exclude_keywords, logic, max_results,
 
         # 8) —— 仅在“网页生成成功或邮件/微信成功发送”后，才持久化去重状态 —— #
         try:
-            if unique_only and state_path and items and (site_generated or email_sent or wecom_sent):
+            # curator 模式下：只要走完了筛选流程（无论几篇入选），当轮所有 items 均视为已消费
+            curator_consumed = bool(curator_cfg.get("enabled") and items)
+            if unique_only and state_path and items and (site_generated or email_sent or wecom_sent or curator_consumed):
                 all_seen = set(seen_ids)
                 for it in items:
                     aid = it.get("id")

@@ -12,7 +12,7 @@ keywords:
 #   - "LLM"
   
 logic: "AND"                 # 组间逻辑：categories 与 keywords 间 AND/OR
-max_results: 30
+max_results: 60              # 每轮候选上限（curator 会精选出 max_push 篇）
 sort_by: "lastUpdatedDate"  # 还可以是submittedDate 建议改成lastUpdatedDate按更新时间排，能捞到v2/v3的“新增”
 sort_order: "descending"
 
@@ -21,8 +21,10 @@ lang: "both"
 
 # —— 摘要设置 ——
 # mode: none / heuristic / llm
+# 一天 5 次增量推送 + curator 模式下，全量条目只做启发式摘要（免 token，供网页归档）；
+# 入选推送的论文由 curator.enrich 单独做丰富版 LLM 总结
 summary:
-  mode: llm # mode: "heuristic"
+  mode: heuristic
   # scope: tldr / full / both
   scope: "both"
 
@@ -63,11 +65,12 @@ llm:
     包含研究动机、核心方法与关键实验结果。保持客观、术语准确；避免营销式表述。
     如有链接请保留，但不要在总结里重复链接。
 
-# —— 中文翻译设置（用 LLM 翻译 title/summary） ——
+# —— 中文翻译设置（已关闭：curator 会为入选论文单独生成中文标题与摘要，
+#     全量翻译只服务网页归档、徒增 token 成本） ——
 translate:
-  enabled: true         # 是否启用
-  lang: "zh"            # 目前只需中文；也可扩展 en/ja 等
-  fields: ["title", "summary"]   # 可扩：["title","summary","comments"]
+  enabled: false
+  lang: "zh"
+  fields: ["title", "summary"]
 
 site:
   enabled: true
@@ -88,8 +91,51 @@ freshness:
 wecom:
   enabled: true
   webhook_env: "WECOM_WEBHOOK_URL"
-  max_items: 15             # 单次推送最多条目（超出部分看网页版）
-  digest_max_chars: 120     # 每篇摘要在微信中的截断长度
+  header_title: "arXiv 论文速递"
+  max_items: 5              # 单次推送最多条目（一天 5 次增量，每次少而精）
+  digest_max_chars: 130     # 普通条目摘要截断长度；curator 入选条目自动放宽到 3 倍
+
+# —— 兴趣筛选 + 机构择优 + 精读级总结 ——
+# 每轮流程：LLM 兴趣打分(批量) → 阈值过滤 → arXiv HTML 页头抓机构关键词(免token)
+#          → 兴趣分+机构加分排序 → 取 top max_push → 每篇一次丰富版总结
+# 未入选但过了阈值的论文仍会归档到网页版
+curator:
+  enabled: true
+  min_score: 0.6            # 兴趣分及格线（0~1），调高更严格
+  max_push: 5               # 每轮最多推送几篇（与 wecom.max_items 保持一致）
+  inst_bonus: 0.15          # 命中 top_institutions 的排序加分
+  fetch_affiliations: true  # 是否抓 arXiv HTML 页头识别机构（每篇约 1 个 HTTP 请求）
+
+  # ⚠️ 用自然语言描述你的兴趣点（打分的依据，写得越具体越准）
+  interests: |
+    - LLM agent 系统：多智能体协作、工具调用、计算机操作(computer use)、长程任务规划
+    - LLM 推理能力：过程奖励模型、可验证奖励强化学习(RLVR)、test-time scaling
+    - 训练效率与对齐：RLHF/DPO 变体、数据合成与课程学习
+    - 不感兴趣：纯视觉任务、传统 NLP 下游任务微调、医疗/法律等垂直领域应用
+
+  # 机构关键词匹配（英文，大小写不敏感；命中任意一个即加分）
+  top_institutions:
+    - "DeepMind"
+    - "OpenAI"
+    - "Anthropic"
+    - "Meta AI"
+    - "FAIR"
+    - "Microsoft Research"
+    - "Stanford"
+    - "MIT"
+    - "Berkeley"
+    - "CMU"
+    - "Princeton"
+    - "Tsinghua"
+    - "Peking University"
+    - "Shanghai AI Laboratory"
+    - "Alibaba"
+    - "Qwen"
+    - "ByteDance"
+    - "Seed"
+    - "DeepSeek"
+    - "Moonshot"
+    - "Zhipu"
 
 scrape:
   html: true               # 先用 HTML 页抓链接
